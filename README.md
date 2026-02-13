@@ -35,6 +35,9 @@
 5. **Frontend не видит API / CORS / 401**  
    В `Frontend/.env.local` задайте `NEXT_PUBLIC_API_URL` (URL бэкенда без слэша в конце, например `https://api.example.com` или `http://localhost:8000`). После изменений перезапустите `npm run dev`. На бэкенде в `.env` в `CORS_ORIGINS` должен быть указан адрес фронта (например `http://localhost:3000` или ваш домен).
 
+6. **GitHub: push отклонён из‑за большого файла (>100 MB)**  
+   В репозитории не должны быть `node_modules/` и `Frontend/.next/` — они в `.gitignore`. После клонирования выполните `npm install` в `Frontend/` и `pip install -r requirements.txt` в `Backend/`. Если вы уже закоммитили их, удалите из индекса: `git rm -r --cached Frontend/node_modules Frontend/.next` и закоммитите.
+
 ## Локальный запуск
 
 ### 1. PostgreSQL
