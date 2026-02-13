@@ -45,7 +45,14 @@ export default function Home() {
       }
       router.replace("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Ошибка");
+      console.error("Auth error:", err);
+      if (err instanceof Error) {
+        setError(err.message || "Ошибка подключения к серверу");
+      } else if (typeof err === "object" && err !== null && "detail" in err) {
+        setError((err as { detail: string }).detail || "Ошибка");
+      } else {
+        setError("Не удалось подключиться к серверу. Проверьте настройки API.");
+      }
     } finally {
       setLoading(false);
     }

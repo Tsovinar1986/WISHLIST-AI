@@ -35,13 +35,25 @@ export async function api<T>(
   };
   if (token) (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
   const url = getApiUrl(path);
-  const res = await fetch(url, { ...init, headers });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error((err as { detail?: string }).detail || res.statusText);
+  
+  try {
+    const res = await fetch(url, { ...init, headers });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error((err as { detail?: string }).detail || res.statusText);
+    }
+    if (res.status === 204) return undefined as T;
+    return res.json() as Promise<T>;
+  } catch (error) {
+    // Handle network errors (backend not reachable, CORS, etc.)
+    if (error instanceof TypeError && error.message.includes("fetch")) {
+      const apiBase = getApiBase();
+      throw new Error(
+        `Не удалось подключиться к серверу (${apiBase}). Проверьте, что бэкенд запущен и доступен.`
+      );
+    }
+    throw error;
   }
-  if (res.status === 204) return undefined as T;
-  return res.json() as Promise<T>;
 }
 
 export type Token = { access_token: string; refresh_token: string };
