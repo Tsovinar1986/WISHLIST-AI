@@ -1,11 +1,14 @@
 """WebSocket connection manager for real-time broadcasting."""
 
 import json
+import logging
 from collections import defaultdict
 from datetime import datetime
 from typing import Any
 
 from fastapi import WebSocket
+
+logger = logging.getLogger(__name__)
 
 
 class ConnectionManager:
@@ -32,13 +35,20 @@ class ConnectionManager:
     async def broadcast_to_wishlist(
         self, wishlist_id: str, message: dict[str, Any]
     ) -> None:
-        """Send message to all clients subscribed to this wishlist."""
-        payload = json.dumps(message)
+        """Send message to all clients subscribed to this wishlist.
+        On send failure we log and discard the connection; never crash.
+        """
+        try:
+            payload = json.dumps(message)
+        except (TypeError, ValueError) as e:
+            logger.warning("broadcast_to_wishlist: failed to serialize message: %s", e)
+            return
         dead = set()
         for ws in self._connections.get(wishlist_id, set()):
             try:
                 await ws.send_text(payload)
-            except Exception:
+            except Exception as e:
+                logger.debug("broadcast_to_wishlist: send failed for one client: %s", e)
                 dead.add(ws)
         for ws in dead:
             self._connections[wishlist_id].discard(ws)

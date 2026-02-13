@@ -9,7 +9,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { api, type PublicWishlist, type PublicItem } from "@/lib/api";
-import { subscribeWishlist } from "@/lib/ws-client";
+import { subscribeWishlist, type WsConnectionState } from "@/lib/ws-client";
 
 export default function PublicWishlistPage() {
   const params = useParams();
@@ -21,6 +21,7 @@ export default function PublicWishlistPage() {
   const [contributeAmount, setContributeAmount] = useState("");
   const [guestName, setGuestName] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [wsState, setWsState] = useState<WsConnectionState>("disconnected");
 
   const applyWsUpdate = useCallback((itemId: string, reservedTotal: number, contributorsCount: number) => {
     const safeTotal = Number(reservedTotal);
@@ -64,6 +65,7 @@ export default function PublicWishlistPage() {
           applyWsUpdate(msg.item_id, msg.reserved_total, msg.contributors_count);
         }
       },
+      onStateChange: setWsState,
     });
     return unsubscribe;
   }, [data?.id, applyWsUpdate]);
@@ -133,8 +135,26 @@ export default function PublicWishlistPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--primary)] border-t-transparent" />
+      <div className="min-h-screen">
+        <header className="border-b border-[var(--border)] bg-[var(--muted-soft)]">
+          <div className="mx-auto max-w-2xl px-4 py-4">
+            <div className="h-8 w-24 rounded bg-[var(--border)] animate-pulse" />
+            <div className="mt-2 h-4 max-w-md rounded bg-[var(--border)] animate-pulse w-full" />
+            <div className="mt-2 h-3 rounded bg-[var(--border)] animate-pulse w-3/4 max-w-sm" />
+          </div>
+        </header>
+        <main className="mx-auto max-w-2xl px-4 py-6 space-y-6">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="rounded-xl border border-[var(--border)] bg-[var(--muted-soft)] overflow-hidden p-4 flex gap-4">
+              <div className="h-24 w-24 rounded-lg bg-[var(--border)] animate-pulse flex-shrink-0" />
+              <div className="flex-1 space-y-2">
+                <div className="h-5 w-full max-w-[80%] rounded bg-[var(--border)] animate-pulse" />
+                <div className="h-4 w-24 rounded bg-[var(--border)] animate-pulse" />
+                <div className="h-3 w-20 rounded bg-[var(--border)] animate-pulse" />
+              </div>
+            </div>
+          ))}
+        </main>
       </div>
     );
   }
@@ -172,6 +192,11 @@ export default function PublicWishlistPage() {
 
   return (
     <div className="min-h-screen">
+      {wsState === "reconnecting" && (
+        <div className="bg-[var(--accent)]/15 text-[var(--accent)] text-center py-2 text-sm font-medium" role="status">
+          Переподключение…
+        </div>
+      )}
       <header className="border-b border-[var(--border)] bg-[var(--muted-soft)]">
         <div className="mx-auto max-w-2xl px-4 py-4">
           <h1 className="text-2xl font-bold break-words">{data.title || "Список желаний"}</h1>

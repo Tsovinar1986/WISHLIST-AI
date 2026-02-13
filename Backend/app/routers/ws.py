@@ -1,4 +1,10 @@
-"""WebSocket endpoint: subscribe to wishlist updates (real-time)."""
+"""WebSocket endpoint: subscribe to wishlist updates (real-time).
+
+Public channel: /ws/wishlist/{wishlist_id} — anyone can subscribe; events are
+anonymous (no user identity). For future owner-only updates (e.g. private
+reservation hints), add an authenticated endpoint such as:
+  /ws/wishlist/{wishlist_id}/owner  (require JWT, verify owner_id).
+"""
 
 from uuid import UUID
 

@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import type { Wishlist, Item } from "@/lib/api";
-import { subscribeWishlist } from "@/lib/ws-client";
+import { subscribeWishlist, type WsConnectionState } from "@/lib/ws-client";
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, { ...options, credentials: "include" });
@@ -31,6 +31,7 @@ export default function WishlistEditPage() {
   const [newUrl, setNewUrl] = useState("");
   const [newImage, setNewImage] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [wsState, setWsState] = useState<WsConnectionState>("disconnected");
 
   const load = useCallback(() => {
     if (!id) return;
@@ -55,9 +56,8 @@ export default function WishlistEditPage() {
   useEffect(() => {
     if (!id) return;
     const unsubscribe = subscribeWishlist(id, {
-      onMessage: () => {
-        load();
-      },
+      onMessage: () => load(),
+      onStateChange: setWsState,
     });
     return unsubscribe;
   }, [id, load]);
@@ -126,6 +126,11 @@ export default function WishlistEditPage() {
 
   return (
     <div>
+      {wsState === "reconnecting" && (
+        <div className="mb-4 rounded-lg bg-[var(--accent)]/15 text-[var(--accent)] text-center py-2 text-sm font-medium" role="status">
+          Переподключение к обновлениям…
+        </div>
+      )}
       <div className="mb-4 flex items-center gap-2 text-sm text-[var(--muted)]">
         <Link href="/dashboard">Мои списки</Link>
         <span>/</span>
