@@ -61,4 +61,13 @@ app.include_router(pusher_auth.router, prefix="/api")
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    """Always 200 so Railway does not kill the container. Body shows db status."""
+    db_ok = False
+    try:
+        from sqlalchemy import text
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        db_ok = True
+    except Exception as e:
+        logger.warning("Health check: DB unreachable: %s", e)
+    return {"status": "ok", "db": "ok" if db_ok else "unavailable"}

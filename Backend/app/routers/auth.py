@@ -1,6 +1,7 @@
 """Auth router: login (email+password), register, refresh. OAuth-ready."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -29,14 +30,22 @@ async def register(
     data: UserCreate,
     session: AsyncSession = Depends(get_db),
 ):
-    existing = await get_user_by_email(session, data.email)
-    if existing:
+    try:
+        existing = await get_user_by_email(session, data.email)
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered",
+            )
+        user = await create_user(session, data)
+        return user
+    except HTTPException:
+        raise
+    except SQLAlchemyError:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered",
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database unavailable. Add PostgreSQL and set DATABASE_URL on Railway.",
         )
-    user = await create_user(session, data)
-    return user
 
 
 @router.post("/login", response_model=Token)
