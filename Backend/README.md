@@ -29,6 +29,15 @@
 
 CORS is set so that in development all origins (`*`) are allowed, so the frontend at `http://localhost:3000` can call the backend without "Load failed" errors.
 
+## Pusher (channel auth for private/presence)
+
+Set `PUSHER_APP_ID`, `PUSHER_KEY`, `PUSHER_SECRET`, `PUSHER_CLUSTER` in `.env`. The auth endpoint is:
+
+- **POST /api/pusher/auth** — body (form): `socket_id`, `channel_name`, optional `channel_data` (for presence).  
+  For `private-*` and `presence-*` channels the request must include **Authorization: Bearer &lt;JWT&gt;**; public channels do not use this endpoint.  
+  Returns `{ "auth": "&lt;key&gt;:&lt;signature&gt;" }` and, for presence, `channel_data`.  
+  Frontend (Pusher JS): set `authEndpoint` to `https://your-api.com/api/pusher/auth` and pass the JWT in `auth.headers.Authorization`.
+
 ## Pushover (push notifications)
 
 Set `PUSHOVER_APP_TOKEN` in `.env` (create an app at https://pushover.net/apps/build). Users set their Pushover User Key in the dashboard; when someone reserves or contributes to a wishlist, the owner gets a push. If you already have a `users` table, add the column: `ALTER TABLE users ADD COLUMN IF NOT EXISTS pushover_user_key VARCHAR(64);`

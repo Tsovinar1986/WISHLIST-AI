@@ -1,11 +1,11 @@
-"""Pusher Channels auth endpoint for private and presence channel subscriptions."""
+"""Pusher Channels auth endpoint for private and presence channel subscriptions (FastAPI)."""
 
 import hashlib
 import hmac
 import logging
-from typing import Any
 
 from fastapi import APIRouter, Depends, Form, HTTPException, status
+from pydantic import BaseModel
 
 from app.api.deps import get_current_user_optional
 from app.core.config import get_settings
@@ -14,6 +14,18 @@ from app.models.user import User
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/pusher", tags=["pusher"])
+
+
+class PusherAuthResponse(BaseModel):
+    """Response for POST /api/pusher/auth — auth string for Pusher JS."""
+
+    auth: str
+
+
+class PusherPresenceAuthResponse(PusherAuthResponse):
+    """Response for presence channel — includes channel_data."""
+
+    channel_data: str
 
 
 def _sign_pusher(string_to_sign: str, secret: str) -> str:
