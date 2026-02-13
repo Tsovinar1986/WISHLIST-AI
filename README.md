@@ -38,6 +38,8 @@
 6. **GitHub: push отклонён из‑за большого файла (>100 MB)**  
    В репозитории не должны быть `node_modules/` и `Frontend/.next/` — они в `.gitignore`. После клонирования выполните `npm install` в `Frontend/` и `pip install -r requirements.txt` в `Backend/`. Если вы уже закоммитили их, удалите из индекса: `git rm -r --cached Frontend/node_modules Frontend/.next` и закоммитите.
 
+**Подробно: как запускать в VS Code и деплоить на Vercel после изменений — см. [RUN_AND_DEPLOY.md](RUN_AND_DEPLOY.md).**
+
 ## Локальный запуск
 
 ### 1. PostgreSQL
