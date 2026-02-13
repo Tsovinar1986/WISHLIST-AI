@@ -1,0 +1,16 @@
+# Build and run the FastAPI backend from repo root (for Railway when Root Directory is not set).
+# Use this by setting Dockerfile path to "Dockerfile.backend" in Railway service settings.
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY Backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY Backend/ .
+
+ENV PORT=8000
+EXPOSE $PORT
+
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT}
