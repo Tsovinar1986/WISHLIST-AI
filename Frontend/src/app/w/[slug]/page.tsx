@@ -36,7 +36,14 @@ export default function PublicWishlistPage() {
   useEffect(() => {
     api<PublicWishlist>(`/api/public/wishlists/by-slug/${slug}`)
       .then(setData)
-      .catch(() => setError("Список не найден"))
+      .catch((err) => {
+        console.error("Failed to load wishlist:", err);
+        if (err instanceof Error) {
+          setError(err.message.includes("подключиться") ? err.message : `Ошибка: ${err.message}`);
+        } else {
+          setError("Список не найден или сервер недоступен");
+        }
+      })
       .finally(() => setLoading(false));
   }, [slug]);
 
@@ -132,10 +139,23 @@ export default function PublicWishlistPage() {
   if (error || !data) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
-        <p className="text-[var(--muted)]">{error || "Список не найден"}</p>
-        <Link href="/" className="mt-4 text-[var(--primary)] hover:underline">
-          На главную
-        </Link>
+        <div className="max-w-md text-center">
+          <p className="text-lg font-semibold text-[var(--foreground)] mb-2">
+            {error || "Список не найден"}
+          </p>
+          <p className="text-sm text-[var(--muted)] mb-4">
+            Возможные причины:
+            <br />
+            • Ссылка неверна или список удалён
+            <br />
+            • Сервер недоступен
+            <br />
+            • Проблема с подключением
+          </p>
+          <Link href="/" className="inline-block rounded-xl bg-[var(--primary)] px-6 py-2 text-white font-medium hover:opacity-90">
+            На главную
+          </Link>
+        </div>
       </div>
     );
   }

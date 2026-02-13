@@ -33,7 +33,17 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins_list(self) -> List[str]:
-        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+        origins = [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+        # In production, allow all origins by default for Vercel compatibility
+        # Vercel uses dynamic subdomains, so we can't list them all
+        # For better security, set CORS_ORIGINS env var with specific domains
+        if self.app_env == "production":
+            # If CORS_ORIGINS is explicitly set, use it; otherwise allow all
+            if origins and self.cors_origins != "http://localhost:5173,http://localhost:3000":
+                return origins
+            # Allow all origins in production (needed for Vercel)
+            return ["*"]
+        return origins
 
 
 @lru_cache

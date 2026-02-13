@@ -40,7 +40,18 @@ export async function api<T>(
     const res = await fetch(url, { ...init, headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: res.statusText }));
-      throw new Error((err as { detail?: string }).detail || res.statusText);
+      const errorMessage = (err as { detail?: string }).detail || res.statusText;
+      // Provide more helpful error messages
+      if (res.status === 404) {
+        throw new Error("Эндпоинт не найден. Проверьте URL API.");
+      } else if (res.status === 401) {
+        throw new Error("Неверный email или пароль");
+      } else if (res.status === 400) {
+        throw new Error(errorMessage || "Неверный запрос");
+      } else if (res.status >= 500) {
+        throw new Error("Ошибка сервера. Попробуйте позже.");
+      }
+      throw new Error(errorMessage);
     }
     if (res.status === 204) return undefined as T;
     return res.json() as Promise<T>;
@@ -48,6 +59,12 @@ export async function api<T>(
     // Handle network errors (backend not reachable, CORS, etc.)
     if (error instanceof TypeError && error.message.includes("fetch")) {
       const apiBase = getApiBase();
+      // Check if it's a CORS error
+      if (apiBase.includes("localhost") && typeof window !== "undefined" && window.location.hostname !== "localhost") {
+        throw new Error(
+          `API настроен на localhost, но приложение работает на ${window.location.hostname}. Установите NEXT_PUBLIC_API_URL в Vercel.`
+        );
+      }
       throw new Error(
         `Не удалось подключиться к серверу (${apiBase}). Проверьте, что бэкенд запущен и доступен.`
       );

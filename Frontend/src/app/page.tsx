@@ -91,7 +91,16 @@ export default function Home() {
             required
             className="w-full rounded-xl border border-[var(--input)] bg-[var(--background)] px-4 py-2.5 text-[var(--foreground)] placeholder:text-[var(--muted)] focus:ring-2 focus:ring-[var(--ring)]"
           />
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && (
+            <div className="rounded-lg border border-red-300 bg-red-50 p-3">
+              <p className="text-sm font-medium text-red-800">{error}</p>
+              {process.env.NODE_ENV === "development" && (
+                <p className="mt-1 text-xs text-red-600">
+                  API URL: {process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}
+                </p>
+              )}
+            </div>
+          )}
           <button
             type="submit"
             disabled={loading}
