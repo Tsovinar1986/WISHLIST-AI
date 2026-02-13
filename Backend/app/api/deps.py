@@ -1,4 +1,4 @@
-"""FastAPI dependencies: current user from JWT."""
+"""FastAPI dependencies: current user from JWT (Bearer token)."""
 
 from uuid import UUID
 
@@ -11,6 +11,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.services.user_service import get_user_by_id
 
+# Bearer token in Authorization header (OAuth2-compatible)
 security = HTTPBearer(auto_error=False)
 
 

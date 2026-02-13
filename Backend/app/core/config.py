@@ -18,13 +18,15 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-in-production"
     debug: bool = True
 
+    # PostgreSQL async; set DATABASE_URL in env (postgresql+asyncpg://user:pass@host:5432/dbname)
     database_url: str = "postgresql+asyncpg://user:password@localhost:5432/wishlist_ai"
 
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 60
     jwt_refresh_token_expire_days: int = 7
 
-    cors_origins: str = "http://localhost:5173,http://localhost:3000"
+    # CORS: allow localhost:3000 (frontend) and * for dev
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173"
 
     google_client_id: str | None = None
     google_client_secret: str | None = None
@@ -34,16 +36,15 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> List[str]:
         origins = [o.strip() for o in self.cors_origins.split(",") if o.strip()]
-        # In production, allow all origins by default for Vercel compatibility
-        # Vercel uses dynamic subdomains, so we can't list them all
-        # For better security, set CORS_ORIGINS env var with specific domains
-        if self.app_env == "production":
-            # If CORS_ORIGINS is explicitly set, use it; otherwise allow all
-            if origins and self.cors_origins != "http://localhost:5173,http://localhost:3000":
-                return origins
-            # Allow all origins in production (needed for Vercel)
+        # Development: allow * so frontend (localhost:3000) can reach backend without CORS errors
+        if self.app_env == "development":
             return ["*"]
-        return origins
+        # Production: allow all origins for Vercel, or use CORS_ORIGINS env for specific list
+        if self.app_env == "production":
+            if origins and self.cors_origins != "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173":
+                return origins
+            return ["*"]
+        return origins if origins else ["http://localhost:3000"]
 
 
 @lru_cache

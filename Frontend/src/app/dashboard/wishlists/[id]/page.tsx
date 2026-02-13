@@ -3,8 +3,17 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { getStoredToken } from "@/lib/auth-store";
-import { api, type Wishlist, type Item } from "@/lib/api";
+import type { Wishlist, Item } from "@/lib/api";
+
+async function api<T>(url: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(url, { ...options, credentials: "include" });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { detail?: string }).detail || res.statusText);
+  }
+  if (res.status === 204) return undefined as T;
+  return res.json();
+}
 
 export default function WishlistEditPage() {
   const router = useRouter();
@@ -22,11 +31,9 @@ export default function WishlistEditPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(() => {
-    const t = getStoredToken();
-    if (!t) return;
     Promise.all([
-      api<Wishlist>(`/api/wishlists/${id}`, { token: t }),
-      api<Item[]>(`/api/wishlists/${id}/items`, { token: t }),
+      api<Wishlist>(`/api/wishlists/${id}`),
+      api<Item[]>(`/api/wishlists/${id}/items`),
     ])
       .then(([w, list]) => {
         setWishlist(w);
@@ -52,14 +59,12 @@ export default function WishlistEditPage() {
   const addItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim()) return;
-    const t = getStoredToken();
-    if (!t) return;
     setSubmitting(true);
     try {
       const price = newPrice.trim() ? parseFloat(newPrice.replace(",", ".")) : null;
       const item = await api<Item>(`/api/wishlists/${id}/items`, {
         method: "POST",
-        token: t,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           wishlist_id: id,
           title: newTitle.trim(),
@@ -81,10 +86,8 @@ export default function WishlistEditPage() {
   };
 
   const deleteItem = async (itemId: string) => {
-    if (!confirm("Удалить подарок из списка?")) return;
-    const t = getStoredToken();
-    if (!t) return;
-    await api(`/api/wishlists/${id}/items/${itemId}`, { method: "DELETE", token: t });
+    if (!confirm("Remove this item from the list?")) return;
+    await api(`/api/wishlists/${id}/items/${itemId}`, { method: "DELETE" });
     setItems((prev) => prev.filter((i) => i.id !== itemId));
   };
 

@@ -31,6 +31,12 @@ class WishlistResponse(WishlistBase):
     model_config = {"from_attributes": True}
 
 
+class WishlistListResponse(WishlistResponse):
+    """Wishlist with item count for list views."""
+
+    items_count: int = 0
+
+
 class WishlistPublicResponse(WishlistResponse):
     """Same as response; used for public-by-slug (no owner identity if needed)."""
 

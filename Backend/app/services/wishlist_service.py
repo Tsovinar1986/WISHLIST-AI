@@ -35,11 +35,16 @@ async def get_wishlist_by_slug(
 
 
 async def list_wishlists_by_owner(
-    session: AsyncSession, owner_id: UUID
+    session: AsyncSession, owner_id: UUID, *, load_items: bool = False
 ) -> list[Wishlist]:
-    result = await session.execute(
-        select(Wishlist).where(Wishlist.owner_id == owner_id).order_by(Wishlist.created_at.desc())
+    q = (
+        select(Wishlist)
+        .where(Wishlist.owner_id == owner_id)
+        .order_by(Wishlist.created_at.desc())
     )
+    if load_items:
+        q = q.options(selectinload(Wishlist.items))
+    result = await session.execute(q)
     return list(result.scalars().all())
 
 

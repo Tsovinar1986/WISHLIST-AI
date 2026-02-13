@@ -8,7 +8,12 @@ from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models.user import User
 from app.models.wishlist import Wishlist
-from app.schemas.wishlist import WishlistCreate, WishlistResponse, WishlistUpdate
+from app.schemas.wishlist import (
+    WishlistCreate,
+    WishlistListResponse,
+    WishlistResponse,
+    WishlistUpdate,
+)
 from app.services.wishlist_service import (
     create_wishlist as svc_create,
     delete_wishlist,
@@ -30,12 +35,25 @@ async def _get_own_wishlist(session: AsyncSession, wishlist_id: UUID, user: User
     return w
 
 
-@router.get("", response_model=list[WishlistResponse])
+@router.get("", response_model=list[WishlistListResponse])
 async def list_my_wishlists(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ):
-    return await list_wishlists_by_owner(session, user.id)
+    wishlists = await list_wishlists_by_owner(session, user.id, load_items=True)
+    return [
+        WishlistListResponse(
+            id=w.id,
+            owner_id=w.owner_id,
+            title=w.title,
+            description=w.description,
+            deadline=w.deadline,
+            public_slug=w.public_slug,
+            created_at=w.created_at,
+            items_count=len(w.items),
+        )
+        for w in wishlists
+    ]
 
 
 @router.post("", response_model=WishlistResponse, status_code=status.HTTP_201_CREATED)

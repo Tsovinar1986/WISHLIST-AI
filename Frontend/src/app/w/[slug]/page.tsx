@@ -1,8 +1,13 @@
 "use client";
 
+/**
+ * Public wishlist view at /w/[slug]. No auth required.
+ * Fetches wishlist + items by slug, shows reserve/contribute buttons.
+ */
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { toast } from "sonner";
 import { api, getWsUrl, type PublicWishlist, type PublicItem } from "@/lib/api";
 
 type WsMessage =
@@ -87,8 +92,9 @@ export default function PublicWishlistPage() {
       applyWsUpdate(item.id, price, 1);
       setReserveItem(null);
       setGuestName("");
+      toast.success("Подарок зарезервирован");
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Ошибка");
+      toast.error(e instanceof Error ? e.message : "Ошибка");
     } finally {
       setSubmitting(false);
     }
@@ -98,13 +104,13 @@ export default function PublicWishlistPage() {
     if (!data) return;
     const amount = parseFloat(contributeAmount.replace(",", "."));
     if (isNaN(amount) || amount <= 0) {
-      alert("Введите сумму");
+      toast.error("Введите сумму");
       return;
     }
     const price = item.price ?? 0;
     const current = item.reserved_total;
     if (price > 0 && current + amount > price) {
-      alert(`Можно добавить не больше ${(price - current).toFixed(0)} ₽`);
+      toast.error(`Можно добавить не больше ${(price - current).toFixed(0)} ₽`);
       return;
     }
     setSubmitting(true);
@@ -121,8 +127,9 @@ export default function PublicWishlistPage() {
       setReserveItem(null);
       setContributeAmount("");
       setGuestName("");
+      toast.success("Вклад внесён");
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Ошибка");
+      toast.error(e instanceof Error ? e.message : "Ошибка");
     } finally {
       setSubmitting(false);
     }
