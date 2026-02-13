@@ -23,7 +23,8 @@ export type WishlistWsMessage =
     }
   | { type: "item_created"; item_id: string }
   | { type: "item_updated"; item_id: string }
-  | { type: "item_deleted"; item_id: string };
+  | { type: "item_deleted"; item_id: string }
+  | { type: "items_reordered" };
 
 export interface SubscribeWishlistCallbacks {
   onMessage: (msg: WishlistWsMessage) => void;

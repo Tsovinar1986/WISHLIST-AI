@@ -10,13 +10,14 @@ from app.db.session import get_db
 from app.models.user import User
 from app.models.wishlist import Wishlist
 from app.models.item import Item
-from app.schemas.item import ItemCreate, ItemResponse, ItemUpdate
+from app.schemas.item import ItemCreate, ItemResponse, ItemReorderRequest, ItemUpdate
 from app.services.wishlist_service import get_wishlist_by_id
 from app.services.item_service import (
     create_item,
     delete_item,
     get_item_by_id,
     list_items_by_wishlist,
+    reorder_items,
     update_item,
 )
 from app.services.product_fetch import fetch_product
@@ -96,6 +97,18 @@ async def create_item_route(
     )
     await manager.broadcast_to_wishlist(str(wishlist_id), {"type": "item_created", "item_id": str(item.id)})
     return item
+
+
+@router.patch("/{wishlist_id}/items/reorder", status_code=status.HTTP_204_NO_CONTENT)
+async def reorder_items_route(
+    wishlist_id: UUID,
+    data: ItemReorderRequest,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    await _get_own_wishlist(session, wishlist_id, user)
+    await reorder_items(session, wishlist_id, data.item_ids)
+    await manager.broadcast_to_wishlist(str(wishlist_id), {"type": "items_reordered"})
 
 
 @router.get("/{wishlist_id}/items/{item_id}", response_model=ItemResponse)

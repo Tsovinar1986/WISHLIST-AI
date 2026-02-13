@@ -31,6 +31,11 @@ class ItemUpdate(BaseModel):
 class ItemResponse(ItemBase):
     id: UUID
     wishlist_id: UUID
+    sort_order: int = 0
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class ItemReorderRequest(BaseModel):
+    item_ids: list[UUID]

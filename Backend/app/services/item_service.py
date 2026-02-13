@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -21,9 +21,20 @@ async def get_item_by_id(
 
 async def list_items_by_wishlist(session: AsyncSession, wishlist_id: UUID) -> list[Item]:
     result = await session.execute(
-        select(Item).where(Item.wishlist_id == wishlist_id).order_by(Item.created_at)
+        select(Item)
+        .where(Item.wishlist_id == wishlist_id)
+        .order_by(Item.sort_order, Item.created_at)
     )
     return list(result.scalars().all())
+
+
+async def get_next_sort_order(session: AsyncSession, wishlist_id: UUID) -> int:
+    r = await session.execute(
+        select(func.coalesce(func.max(Item.sort_order), -1) + 1).where(
+            Item.wishlist_id == wishlist_id
+        )
+    )
+    return r.scalar_one() or 0
 
 
 async def create_item(
@@ -36,8 +47,10 @@ async def create_item(
     allow_contributions: bool = True,
     cached_snapshot_json: dict | None = None,
 ) -> Item:
+    sort_order = await get_next_sort_order(session, wishlist_id)
     item = Item(
         wishlist_id=wishlist_id,
+        sort_order=sort_order,
         title=title,
         price=price,
         image_url=image_url,
@@ -62,4 +75,15 @@ async def update_item(session: AsyncSession, item: Item, **kwargs) -> Item:
 
 async def delete_item(session: AsyncSession, item: Item) -> None:
     await session.delete(item)
+    await session.flush()
+
+
+async def reorder_items(
+    session: AsyncSession, wishlist_id: UUID, item_ids: list[UUID]
+) -> None:
+    """Set sort_order by position in item_ids (0, 1, 2, ...)."""
+    for idx, item_id in enumerate(item_ids):
+        item = await get_item_by_id(session, item_id)
+        if item and item.wishlist_id == wishlist_id:
+            item.sort_order = idx
     await session.flush()

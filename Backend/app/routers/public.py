@@ -53,7 +53,8 @@ async def get_wishlist_by_slug_public(
             detail="Wishlist not found",
         )
     items_out = []
-    for item in w.items:
+    sorted_items = sorted(w.items, key=lambda i: (getattr(i, "sort_order", 0), i.created_at))
+    for item in sorted_items:
         total = await total_reserved_for_item(session, item.id)
         count = await contributors_count_for_item(session, item.id)
         items_out.append(

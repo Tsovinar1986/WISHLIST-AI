@@ -90,6 +90,7 @@ export type Wishlist = {
 export type Item = {
   id: string;
   wishlist_id: string;
+  sort_order: number;
   title: string;
   price: number | null;
   image_url: string | null;

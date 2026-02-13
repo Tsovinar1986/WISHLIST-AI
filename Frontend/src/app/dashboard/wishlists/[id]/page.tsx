@@ -34,6 +34,7 @@ export default function WishlistEditPage() {
   const [newUrl, setNewUrl] = useState("");
   const [newImage, setNewImage] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [fetchingUrl, setFetchingUrl] = useState(false);
   const [wsState, setWsState] = useState<WsConnectionState>("disconnected");
 
   const load = useCallback(() => {
@@ -73,6 +74,42 @@ export default function WishlistEditPage() {
       toast.success("Ссылка скопирована");
       setTimeout(() => setCopied(false), 2000);
     }).catch(() => toast.error("Не удалось скопировать"));
+  };
+
+  const fetchByUrl = async () => {
+    const url = newUrl.trim();
+    if (!url) {
+      toast.error("Вставьте ссылку на товар");
+      return;
+    }
+    setFetchingUrl(true);
+    try {
+      const res = await fetch("/api/product/fetch", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      const data = (await res.json()) as {
+        success?: boolean;
+        title?: string | null;
+        image_url?: string | null;
+        price?: number | null;
+        error?: string;
+      };
+      if (data.success) {
+        if (data.title) setNewTitle(data.title);
+        if (data.image_url) setNewImage(data.image_url);
+        if (data.price != null) setNewPrice(String(data.price));
+        toast.success("Данные подтянуты по ссылке");
+      } else {
+        toast.error(data.error || "Не удалось подтянуть данные. Введите вручную.");
+      }
+    } catch {
+      toast.error("Ошибка запроса. Введите данные вручную.");
+    } finally {
+      setFetchingUrl(false);
+    }
   };
 
   const addItem = async (e: React.FormEvent) => {
@@ -115,6 +152,35 @@ export default function WishlistEditPage() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Не удалось удалить");
     }
+  };
+
+  const reorderItems = async (newOrder: string[]) => {
+    try {
+      await api(`/api/wishlists/${id}/items/reorder`, {
+        method: "PATCH",
+        body: JSON.stringify({ item_ids: newOrder }),
+      });
+      setItems((prev) => {
+        const byId = new Map(prev.map((i) => [i.id, i]));
+        return newOrder.map((id) => byId.get(id)).filter(Boolean) as Item[];
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Не удалось изменить порядок");
+    }
+  };
+
+  const moveUp = (index: number) => {
+    if (index <= 0) return;
+    const next = [...items];
+    [next[index - 1], next[index]] = [next[index], next[index - 1]];
+    reorderItems(next.map((i) => i.id));
+  };
+
+  const moveDown = (index: number) => {
+    if (index >= items.length - 1) return;
+    const next = [...items];
+    [next[index], next[index + 1]] = [next[index + 1], next[index]];
+    reorderItems(next.map((i) => i.id));
   };
 
   if (loading || !wishlist) {
@@ -164,12 +230,13 @@ export default function WishlistEditPage() {
       </p>
 
       {items.length === 0 && !addOpen && (
-        <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--muted-soft)] p-8 text-center">
-          <p className="text-[var(--muted)] mb-4">В списке пока нет подарков</p>
+        <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--muted-soft)] p-8 sm:p-10 text-center">
+          <p className="text-[var(--muted)] mb-2">В списке пока нет подарков</p>
+          <p className="text-sm text-[var(--muted)] mb-4">Добавьте желания и поделитесь ссылкой с друзьями</p>
           <button
             type="button"
             onClick={() => setAddOpen(true)}
-            className="rounded-xl bg-[var(--primary)] px-4 py-2 text-white font-medium"
+            className="rounded-xl bg-[var(--primary)] px-5 py-2.5 text-white font-medium hover:opacity-90 transition-opacity"
           >
             Добавить подарок
           </button>
@@ -178,11 +245,31 @@ export default function WishlistEditPage() {
 
       {items.length > 0 && (
         <ul className="space-y-4 mb-8">
-          {items.map((item) => (
+          {items.map((item, index) => (
             <li
               key={item.id}
               className="flex flex-wrap items-start gap-4 rounded-xl border border-[var(--border)] bg-[var(--muted-soft)] p-4"
             >
+              <div className="flex flex-col gap-1">
+                <button
+                  type="button"
+                  onClick={() => moveUp(index)}
+                  disabled={index === 0}
+                  title="Поднять выше"
+                  className="rounded border border-[var(--border)] px-2 py-1 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  onClick={() => moveDown(index)}
+                  disabled={index === items.length - 1}
+                  title="Опустить ниже"
+                  className="rounded border border-[var(--border)] px-2 py-1 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  ↓
+                </button>
+              </div>
               {item.image_url && (
                 <img
                   src={item.image_url}
@@ -235,13 +322,23 @@ export default function WishlistEditPage() {
             onChange={(e) => setNewPrice(e.target.value)}
             className="w-full rounded-lg border border-[var(--input)] bg-[var(--background)] px-3 py-2"
           />
-          <input
-            type="url"
-            placeholder="Ссылка на товар"
-            value={newUrl}
-            onChange={(e) => setNewUrl(e.target.value)}
-            className="w-full rounded-lg border border-[var(--input)] bg-[var(--background)] px-3 py-2"
-          />
+          <div className="flex gap-2">
+            <input
+              type="url"
+              placeholder="Ссылка на товар — вставьте URL для автозаполнения"
+              value={newUrl}
+              onChange={(e) => setNewUrl(e.target.value)}
+              className="flex-1 min-w-0 rounded-lg border border-[var(--input)] bg-[var(--background)] px-3 py-2"
+            />
+            <button
+              type="button"
+              onClick={fetchByUrl}
+              disabled={fetchingUrl || !newUrl.trim()}
+              className="rounded-lg bg-[var(--primary)] px-3 py-2 text-sm font-medium text-white disabled:opacity-50 whitespace-nowrap"
+            >
+              {fetchingUrl ? "…" : "Подтянуть"}
+            </button>
+          </div>
           <input
             type="url"
             placeholder="Ссылка на картинку"

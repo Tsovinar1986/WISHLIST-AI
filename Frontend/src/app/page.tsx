@@ -9,28 +9,30 @@ export default async function HomePage() {
   if (token) redirect("/dashboard");
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-4">
+    <main className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6">
       <div className="text-center max-w-md space-y-6">
-        <h1 className="text-3xl font-bold">Wishlist</h1>
-        <p className="text-[var(--muted)]">
-          Create wishlists and share them with friends.
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
+          Списки желаний
+        </h1>
+        <p className="text-[var(--muted)] text-base">
+          Создавайте вишлисты, добавляйте подарки и делитесь ссылкой с друзьями. Друзья смогут зарезервировать подарок или скинуться — вы не узнаете, кто что выбрал.
         </p>
         <div className="flex flex-wrap gap-3 justify-center">
           <Link
             href="/login"
-            className="inline-flex items-center justify-center rounded-md bg-[var(--primary)] px-6 py-2.5 text-sm font-medium text-white hover:opacity-90"
+            className="inline-flex items-center justify-center rounded-xl bg-[var(--primary)] px-6 py-2.5 text-sm font-medium text-white hover:opacity-90 transition-opacity"
           >
-            Log in
+            Войти
           </Link>
           <Link
             href="/register"
-            className="inline-flex items-center justify-center rounded-md border border-[var(--border)] px-6 py-2.5 text-sm font-medium hover:bg-[var(--muted-soft)]"
+            className="inline-flex items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--muted-soft)] px-6 py-2.5 text-sm font-medium hover:bg-[var(--border)] transition-colors"
           >
-            Register
+            Регистрация
           </Link>
         </div>
         <p className="text-sm text-[var(--muted)]">
-          You can open a shared wishlist by link without logging in.
+          Публичную ссылку на вишлист можно открыть без входа.
         </p>
       </div>
     </main>

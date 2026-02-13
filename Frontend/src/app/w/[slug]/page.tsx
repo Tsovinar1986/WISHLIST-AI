@@ -37,6 +37,16 @@ export default function PublicWishlistPage() {
     });
   }, []);
 
+  const load = useCallback(() => {
+    const safeSlug = typeof slug === "string" ? slug.trim() : "";
+    if (!safeSlug) return;
+    return api<PublicWishlist>(`/api/public/wishlists/by-slug/${encodeURIComponent(safeSlug)}`)
+      .then(setData)
+      .catch((err) => {
+        console.error("Failed to load wishlist:", err);
+      });
+  }, [slug]);
+
   useEffect(() => {
     const safeSlug = typeof slug === "string" ? slug.trim() : "";
     if (!safeSlug) {
@@ -44,6 +54,7 @@ export default function PublicWishlistPage() {
       setLoading(false);
       return;
     }
+    setLoading(true);
     api<PublicWishlist>(`/api/public/wishlists/by-slug/${encodeURIComponent(safeSlug)}`)
       .then(setData)
       .catch((err) => {
@@ -63,12 +74,19 @@ export default function PublicWishlistPage() {
       onMessage: (msg) => {
         if (msg.type === "item_reserved" || msg.type === "contribution_added") {
           applyWsUpdate(msg.item_id, msg.reserved_total, msg.contributors_count);
+        } else if (
+          msg.type === "item_created" ||
+          msg.type === "item_updated" ||
+          msg.type === "item_deleted" ||
+          msg.type === "items_reordered"
+        ) {
+          load();
         }
       },
       onStateChange: setWsState,
     });
     return unsubscribe;
-  }, [data?.id, applyWsUpdate]);
+  }, [data?.id, applyWsUpdate, load]);
 
   const reserveFull = async (item: PublicItem) => {
     if (!data) return;
@@ -211,8 +229,9 @@ export default function PublicWishlistPage() {
 
       <main className="mx-auto max-w-2xl px-4 py-6">
         {!(Array.isArray(data.items) && data.items.length > 0) ? (
-          <div className="rounded-2xl border border-dashed border-[var(--border)] p-8 text-center text-[var(--muted)]">
-            В этом списке пока нет подарков.
+          <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--muted-soft)] p-8 sm:p-10 text-center">
+            <p className="text-[var(--muted)] mb-1">В этом списке пока нет подарков.</p>
+            <p className="text-sm text-[var(--muted)]">Владелец списка скоро добавит желания — загляните позже.</p>
           </div>
         ) : (
           <ul className="space-y-6">
