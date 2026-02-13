@@ -10,8 +10,11 @@ import { subscribeWishlist, type WsConnectionState } from "@/lib/ws-client";
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, { ...options, credentials: "include" });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as { detail?: string }).detail || res.statusText);
+    const err = (await res.json().catch(() => ({}))) as { detail?: string | string[] };
+    const raw = err.detail;
+    const msg =
+      typeof raw === "string" ? raw : Array.isArray(raw) ? raw[0] : undefined;
+    throw new Error(msg || res.statusText);
   }
   if (res.status === 204) return undefined as T;
   return res.json();

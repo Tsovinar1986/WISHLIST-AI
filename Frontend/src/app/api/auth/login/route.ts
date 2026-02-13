@@ -17,14 +17,20 @@ export async function POST(request: NextRequest) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
-    const data = await res.json().catch(() => ({}));
+    const data = (await res.json().catch(() => ({}))) as {
+      detail?: string | string[];
+      access_token?: string;
+    };
     if (!res.ok) {
+      const raw = data.detail;
+      const errorMsg =
+        typeof raw === "string" ? raw : Array.isArray(raw) ? raw[0] : undefined;
       return NextResponse.json(
-        { error: (data as { detail?: string }).detail || "Login failed" },
+        { error: errorMsg || "Login failed" },
         { status: res.status }
       );
     }
-    const access_token = (data as { access_token?: string }).access_token;
+    const access_token = data.access_token;
     if (!access_token) {
       return NextResponse.json({ error: "No token in response" }, { status: 502 });
     }

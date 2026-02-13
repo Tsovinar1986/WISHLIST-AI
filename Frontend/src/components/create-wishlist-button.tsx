@@ -34,14 +34,19 @@ export function CreateWishlistForm({
           deadline: null,
         }),
       });
-      const data = await res.json().catch(() => ({}));
+      const data = (await res.json().catch(() => ({}))) as {
+        detail?: string | string[];
+        error?: string;
+        id?: string;
+      };
       if (!res.ok) {
-        const raw = (data as { detail?: string | string[] }).detail;
-        const msg = typeof raw === "string" ? raw : Array.isArray(raw) ? raw[0] : (data as { error?: string }).error;
+        const raw = data.detail;
+        const msg =
+          typeof raw === "string" ? raw : Array.isArray(raw) ? raw[0] : data.error;
         toast.error(msg || "Не удалось создать список");
         return;
       }
-      const id = (data as { id?: string }).id;
+      const id = data.id;
       setTitle("");
       toast.success("Wishlist created");
       onSuccess?.();

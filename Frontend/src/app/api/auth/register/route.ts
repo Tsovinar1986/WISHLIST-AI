@@ -21,10 +21,15 @@ export async function POST(request: NextRequest) {
         name: name || email.split("@")[0],
       }),
     });
-    const registerData = await registerRes.json().catch(() => ({}));
+    const registerData = (await registerRes.json().catch(() => ({}))) as {
+      detail?: string | string[];
+    };
     if (!registerRes.ok) {
+      const raw = registerData.detail;
+      const errorMsg =
+        typeof raw === "string" ? raw : Array.isArray(raw) ? raw[0] : undefined;
       return NextResponse.json(
-        { error: (registerData as { detail?: string }).detail || "Registration failed" },
+        { error: errorMsg || "Registration failed" },
         { status: registerRes.status }
       );
     }
@@ -33,11 +38,13 @@ export async function POST(request: NextRequest) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
-    const loginData = await loginRes.json().catch(() => ({}));
+    const loginData = (await loginRes.json().catch(() => ({}))) as {
+      access_token?: string;
+    };
     if (!loginRes.ok) {
       return NextResponse.json({ ok: true }); // registered but login failed; user can go to login
     }
-    const access_token = (loginData as { access_token?: string }).access_token;
+    const access_token = loginData.access_token;
     if (!access_token) {
       return NextResponse.json({ ok: true });
     }
