@@ -19,6 +19,8 @@ from app.schemas.reservation import (
 )
 from app.services.wishlist_service import get_wishlist_by_id
 from app.services.item_service import get_item_by_id
+from app.services.user_service import get_user_by_id
+from app.services.pushover import send_pushover
 from app.services.reservation_service import (
     create_reservation as svc_create_reservation,
     list_reservations_for_item,
@@ -51,6 +53,19 @@ def _reservation_for_guest(r: Reservation) -> ReservationResponseForGuest:
         guest_name=r.guest_name,
         created_at=r.created_at,
     )
+
+
+async def _send_pushover_for_reservation(
+    pushover_user_key: str, wishlist_title: str, item_title: str, is_full_reservation: bool
+) -> None:
+    """Background: notify wishlist owner via Pushover."""
+    if is_full_reservation:
+        title = "Reservation"
+        message = f'Someone reserved "{item_title}" on "{wishlist_title}".'
+    else:
+        title = "Contribution"
+        message = f'Someone contributed to "{item_title}" on "{wishlist_title}".'
+    await send_pushover(pushover_user_key, title, message)
 
 
 def _anonymized_reservations_for_broadcast(reservations: list[Reservation]) -> list[dict]:
@@ -117,6 +132,15 @@ async def create_reservation(
         str(wishlist_id),
         payload,
     )
+    owner = await get_user_by_id(session, w.owner_id)
+    if owner and owner.pushover_user_key:
+        background_tasks.add_task(
+            _send_pushover_for_reservation,
+            owner.pushover_user_key,
+            w.title,
+            item.title,
+            data.is_full_reservation,
+        )
     return _reservation_for_guest(reservation)
 
 

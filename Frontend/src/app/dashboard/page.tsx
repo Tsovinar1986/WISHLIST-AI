@@ -12,6 +12,7 @@ import {
 import { CreateWishlistForm } from "@/components/create-wishlist-button";
 import { WishlistCard } from "@/components/wishlist-card";
 import { EmptyWishlistsState } from "@/components/empty-wishlists";
+import { PushoverSettings } from "@/components/pushover-settings";
 
 type User = { id: string; email: string; name: string; created_at: string };
 type Wishlist = {
@@ -64,6 +65,8 @@ export default async function DashboardPage() {
         </h1>
         <p className="text-[var(--muted)] mt-1">Ваши вишлисты:</p>
       </div>
+
+      <PushoverSettings />
 
       {wishlists.length === 0 ? (
         <EmptyWishlistsState />

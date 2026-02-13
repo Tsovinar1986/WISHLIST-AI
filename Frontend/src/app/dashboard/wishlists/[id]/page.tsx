@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import type { Wishlist, Item } from "@/lib/api";
+import { subscribeWishlist } from "@/lib/ws-client";
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, { ...options, credentials: "include" });
@@ -46,6 +47,16 @@ export default function WishlistEditPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!id) return;
+    const unsubscribe = subscribeWishlist(id, {
+      onMessage: () => {
+        load();
+      },
+    });
+    return unsubscribe;
+  }, [id, load]);
 
   const copyLink = () => {
     if (!wishlist) return;

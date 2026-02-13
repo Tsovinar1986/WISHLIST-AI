@@ -17,6 +17,7 @@ class UserCreate(UserBase):
 
 class UserUpdate(BaseModel):
     name: str | None = None
+    pushover_user_key: str | None = None
 
 
 class UserInDB(UserBase):

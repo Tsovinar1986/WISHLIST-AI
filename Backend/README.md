@@ -28,3 +28,7 @@
    - `POST http://localhost:8000/api/auth/login` — body: `{"email":"...","password":"..."}` → returns `{"access_token":"...","refresh_token":"..."}`
 
 CORS is set so that in development all origins (`*`) are allowed, so the frontend at `http://localhost:3000` can call the backend without "Load failed" errors.
+
+## Pushover (push notifications)
+
+Set `PUSHOVER_APP_TOKEN` in `.env` (create an app at https://pushover.net/apps/build). Users set their Pushover User Key in the dashboard; when someone reserves or contributes to a wishlist, the owner gets a push. If you already have a `users` table, add the column: `ALTER TABLE users ADD COLUMN IF NOT EXISTS pushover_user_key VARCHAR(64);`

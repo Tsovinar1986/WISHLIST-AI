@@ -40,18 +40,21 @@ export async function api<T>(
     const res = await fetch(url, { ...init, headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: res.statusText }));
-      const errorMessage = (err as { detail?: string }).detail || res.statusText;
+      const raw = (err as { detail?: string | string[] }).detail;
+      const errorMessage =
+        typeof raw === "string" ? raw : Array.isArray(raw) ? raw[0] : undefined;
+      const message = errorMessage || (err as { error?: string }).error || res.statusText;
       // Provide more helpful error messages
       if (res.status === 404) {
         throw new Error("Эндпоинт не найден. Проверьте URL API.");
       } else if (res.status === 401) {
         throw new Error("Неверный email или пароль");
       } else if (res.status === 400) {
-        throw new Error(errorMessage || "Неверный запрос");
+        throw new Error(message || "Неверный запрос");
       } else if (res.status >= 500) {
         throw new Error("Ошибка сервера. Попробуйте позже.");
       }
-      throw new Error(errorMessage);
+      throw new Error(message);
     }
     if (res.status === 204) return undefined as T;
     return res.json() as Promise<T>;

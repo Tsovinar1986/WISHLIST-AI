@@ -4,15 +4,12 @@
  * Public wishlist view at /w/[slug]. No auth required.
  * Fetches wishlist + items by slug, shows reserve/contribute buttons.
  */
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { api, getWsUrl, type PublicWishlist, type PublicItem } from "@/lib/api";
-
-type WsMessage =
-  | { type: "pong" }
-  | { type: "item_reserved" | "contribution_added"; item_id: string; reserved_total: number; contributors_count: number };
+import { api, type PublicWishlist, type PublicItem } from "@/lib/api";
+import { subscribeWishlist } from "@/lib/ws-client";
 
 export default function PublicWishlistPage() {
   const params = useParams();
@@ -20,7 +17,6 @@ export default function PublicWishlistPage() {
   const [data, setData] = useState<PublicWishlist | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const wsRef = useRef<WebSocket | null>(null);
   const [reserveItem, setReserveItem] = useState<PublicItem | null>(null);
   const [contributeAmount, setContributeAmount] = useState("");
   const [guestName, setGuestName] = useState("");
@@ -53,26 +49,15 @@ export default function PublicWishlistPage() {
   }, [slug]);
 
   useEffect(() => {
-    if (!data) return;
-    const wsUrl = getWsUrl(`/api/ws/wishlist/${data.id}`);
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
-    ws.onmessage = (ev) => {
-      try {
-        const msg = JSON.parse(ev.data) as WsMessage;
+    if (!data?.id) return;
+    const unsubscribe = subscribeWishlist(data.id, {
+      onMessage: (msg) => {
         if (msg.type === "item_reserved" || msg.type === "contribution_added") {
           applyWsUpdate(msg.item_id, msg.reserved_total, msg.contributors_count);
         }
-      } catch {}
-    };
-    const ping = setInterval(() => {
-      if (ws.readyState === WebSocket.OPEN) ws.send("ping");
-    }, 25000);
-    return () => {
-      clearInterval(ping);
-      ws.close();
-      wsRef.current = null;
-    };
+      },
+    });
+    return unsubscribe;
   }, [data?.id, applyWsUpdate]);
 
   const reserveFull = async (item: PublicItem) => {
@@ -214,17 +199,27 @@ export default function PublicWishlistPage() {
                     )}
                     <div className="flex-1 min-w-0">
                       <h2 className="font-semibold">{item.title}</h2>
-                      {item.price != null && (
-                        <p className="text-sm text-[var(--muted)]">
-                          {item.price.toFixed(0)} ₽
-                          {item.reserved_total > 0 && (
-                            <span className="ml-2">
-                              — собрано {item.reserved_total.toFixed(0)} ₽
-                              {item.contributors_count > 0 && ` (${item.contributors_count})`}
+                      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                        {item.price != null && (
+                          <>
+                            <span className="inline-flex items-center rounded-full bg-[var(--border)] px-2.5 py-0.5 text-xs font-medium text-[var(--foreground)]">
+                              {item.price.toFixed(0)} ₽
                             </span>
-                          )}
-                        </p>
-                      )}
+                            {item.reserved_total > 0 && (
+                              <>
+                                <span className="inline-flex items-center rounded-full bg-[var(--primary-soft)] px-2.5 py-0.5 text-xs font-medium text-[var(--primary)]">
+                                  Собрано {item.reserved_total.toFixed(0)} ₽
+                                </span>
+                                {item.contributors_count > 0 && (
+                                  <span className="inline-flex items-center rounded-full bg-[var(--muted-soft)] px-2.5 py-0.5 text-xs text-[var(--muted)]">
+                                    {item.contributors_count} {item.contributors_count === 1 ? "участник" : item.contributors_count < 5 ? "участника" : "участников"}
+                                  </span>
+                                )}
+                              </>
+                            )}
+                          </>
+                        )}
+                      </div>
                       {item.product_url && (
                         <a
                           href={item.product_url}
@@ -240,9 +235,9 @@ export default function PublicWishlistPage() {
                   {(item.price == null || item.price > 0) && (
                     <div className="px-4 pb-4">
                       {item.price != null && item.price > 0 && (
-                        <div className="mb-3 h-2 rounded-full bg-[var(--border)] overflow-hidden">
+                        <div className="mb-3 overflow-hidden rounded-full bg-[var(--border)] h-2.5">
                           <div
-                            className="h-full rounded-full bg-[var(--primary)] transition-all"
+                            className={`h-full rounded-full transition-[width] duration-500 ease-out ${isFullyReserved ? "bg-[var(--accent)]" : "bg-[var(--primary)]"}`}
                             style={{
                               width: `${Math.min(100, (item.reserved_total / item.price) * 100)}%`,
                             }}
@@ -250,7 +245,10 @@ export default function PublicWishlistPage() {
                         </div>
                       )}
                       {isFullyReserved ? (
-                        <p className="text-sm text-[var(--muted)]">Подарок зарезервирован</p>
+                        <div className="inline-flex items-center gap-1.5 rounded-full bg-[var(--accent)]/15 px-3 py-1.5 text-sm font-medium text-[var(--accent)]">
+                          <span className="size-1.5 rounded-full bg-[var(--accent)]" aria-hidden />
+                          Подарок зарезервирован
+                        </div>
                       ) : (
                         <>
                           {!isReserveOpen ? (

@@ -15,3 +15,22 @@ export async function GET() {
   if (!res.ok) return NextResponse.json(data, { status: res.status });
   return NextResponse.json(data);
 }
+
+export async function PATCH(request: Request) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
+  if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const body = await request.json().catch(() => ({}));
+  const backend = getBackendUrl();
+  const res = await fetch(`${backend}/api/users/me`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return NextResponse.json(data, { status: res.status });
+  return NextResponse.json(data);
+}
