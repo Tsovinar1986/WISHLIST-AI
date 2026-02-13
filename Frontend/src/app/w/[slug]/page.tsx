@@ -1,0 +1,318 @@
+"use client";
+
+import { useEffect, useState, useRef, useCallback } from "react";
+import { useParams } from "next/navigation";
+import Link from "next/link";
+import { api, getWsUrl, type PublicWishlist, type PublicItem } from "@/lib/api";
+
+type WsMessage =
+  | { type: "pong" }
+  | { type: "item_reserved" | "contribution_added"; item_id: string; reserved_total: number; contributors_count: number };
+
+export default function PublicWishlistPage() {
+  const params = useParams();
+  const slug = params.slug as string;
+  const [data, setData] = useState<PublicWishlist | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const wsRef = useRef<WebSocket | null>(null);
+  const [reserveItem, setReserveItem] = useState<PublicItem | null>(null);
+  const [contributeAmount, setContributeAmount] = useState("");
+  const [guestName, setGuestName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const applyWsUpdate = useCallback((itemId: string, reservedTotal: number, contributorsCount: number) => {
+    setData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        items: prev.items.map((i) =>
+          i.id === itemId ? { ...i, reserved_total: reservedTotal, contributors_count: contributorsCount } : i
+        ),
+      };
+    });
+  }, []);
+
+  useEffect(() => {
+    api<PublicWishlist>(`/api/public/wishlists/by-slug/${slug}`)
+      .then(setData)
+      .catch(() => setError("Список не найден"))
+      .finally(() => setLoading(false));
+  }, [slug]);
+
+  useEffect(() => {
+    if (!data) return;
+    const wsUrl = getWsUrl(`/api/ws/wishlist/${data.id}`);
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+    ws.onmessage = (ev) => {
+      try {
+        const msg = JSON.parse(ev.data) as WsMessage;
+        if (msg.type === "item_reserved" || msg.type === "contribution_added") {
+          applyWsUpdate(msg.item_id, msg.reserved_total, msg.contributors_count);
+        }
+      } catch {}
+    };
+    const ping = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) ws.send("ping");
+    }, 25000);
+    return () => {
+      clearInterval(ping);
+      ws.close();
+      wsRef.current = null;
+    };
+  }, [data?.id, applyWsUpdate]);
+
+  const reserveFull = async (item: PublicItem) => {
+    if (!data) return;
+    const price = item.price ?? 0;
+    if (price <= 0) return;
+    setSubmitting(true);
+    try {
+      await api(`/api/wishlists/${data.id}/items/${item.id}/reservations`, {
+        method: "POST",
+        body: JSON.stringify({
+          amount: price,
+          is_full_reservation: true,
+          guest_name: guestName.trim() || undefined,
+        }),
+      });
+      applyWsUpdate(item.id, price, 1);
+      setReserveItem(null);
+      setGuestName("");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const contribute = async (item: PublicItem) => {
+    if (!data) return;
+    const amount = parseFloat(contributeAmount.replace(",", "."));
+    if (isNaN(amount) || amount <= 0) {
+      alert("Введите сумму");
+      return;
+    }
+    const price = item.price ?? 0;
+    const current = item.reserved_total;
+    if (price > 0 && current + amount > price) {
+      alert(`Можно добавить не больше ${(price - current).toFixed(0)} ₽`);
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await api(`/api/wishlists/${data.id}/items/${item.id}/reservations`, {
+        method: "POST",
+        body: JSON.stringify({
+          amount,
+          is_full_reservation: false,
+          guest_name: guestName.trim() || undefined,
+        }),
+      });
+      applyWsUpdate(item.id, current + amount, item.contributors_count + 1);
+      setReserveItem(null);
+      setContributeAmount("");
+      setGuestName("");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--primary)] border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4">
+        <p className="text-[var(--muted)]">{error || "Список не найден"}</p>
+        <Link href="/" className="mt-4 text-[var(--primary)] hover:underline">
+          На главную
+        </Link>
+      </div>
+    );
+  }
+
+  const remaining = (item: PublicItem) => {
+    const p = item.price ?? 0;
+    if (p <= 0) return null;
+    return Math.max(0, p - item.reserved_total);
+  };
+
+  return (
+    <div className="min-h-screen">
+      <header className="border-b border-[var(--border)] bg-[var(--muted-soft)]">
+        <div className="mx-auto max-w-2xl px-4 py-4">
+          <h1 className="text-2xl font-bold">{data.title}</h1>
+          {data.description && (
+            <p className="mt-1 text-sm text-[var(--muted)]">{data.description}</p>
+          )}
+          <p className="mt-2 text-xs text-[var(--muted)]">
+            Выберите подарок или скиньтесь — владелец списка не увидит, кто что выбрал.
+          </p>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-2xl px-4 py-6">
+        {data.items.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-[var(--border)] p-8 text-center text-[var(--muted)]">
+            В этом списке пока нет подарков.
+          </div>
+        ) : (
+          <ul className="space-y-6">
+            {data.items.map((item) => {
+              const rem = remaining(item);
+              const isFullyReserved = (item.price ?? 0) > 0 && item.reserved_total >= (item.price ?? 0);
+              const isReserveOpen = reserveItem?.id === item.id;
+
+              return (
+                <li
+                  key={item.id}
+                  className="rounded-xl border border-[var(--border)] bg-[var(--muted-soft)] overflow-hidden"
+                >
+                  <div className="flex gap-4 p-4">
+                    {item.image_url && (
+                      <img
+                        src={item.image_url}
+                        alt=""
+                        className="h-24 w-24 rounded-lg object-cover flex-shrink-0"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <h2 className="font-semibold">{item.title}</h2>
+                      {item.price != null && (
+                        <p className="text-sm text-[var(--muted)]">
+                          {item.price.toFixed(0)} ₽
+                          {item.reserved_total > 0 && (
+                            <span className="ml-2">
+                              — собрано {item.reserved_total.toFixed(0)} ₽
+                              {item.contributors_count > 0 && ` (${item.contributors_count})`}
+                            </span>
+                          )}
+                        </p>
+                      )}
+                      {item.product_url && (
+                        <a
+                          href={item.product_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-[var(--primary)] hover:underline"
+                        >
+                          Ссылка на товар
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                  {(item.price == null || item.price > 0) && (
+                    <div className="px-4 pb-4">
+                      {item.price != null && item.price > 0 && (
+                        <div className="mb-3 h-2 rounded-full bg-[var(--border)] overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-[var(--primary)] transition-all"
+                            style={{
+                              width: `${Math.min(100, (item.reserved_total / item.price) * 100)}%`,
+                            }}
+                          />
+                        </div>
+                      )}
+                      {isFullyReserved ? (
+                        <p className="text-sm text-[var(--muted)]">Подарок зарезервирован</p>
+                      ) : (
+                        <>
+                          {!isReserveOpen ? (
+                            <div className="flex flex-wrap gap-2">
+                              {item.allow_contributions && rem !== null && rem > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setReserveItem(item)}
+                                  className="rounded-lg bg-[var(--primary)] px-3 py-1.5 text-sm font-medium text-white"
+                                >
+                                  Скинуться
+                                </button>
+                              )}
+                              {rem !== null && rem > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setReserveItem(item);
+                                    setContributeAmount("");
+                                  }}
+                                  className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm"
+                                >
+                                  Зарезервировать полностью
+                                </button>
+                              )}
+                            </div>
+                          ) : null}
+                          {isReserveOpen && (
+                            <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-3 space-y-2">
+                              <input
+                                type="text"
+                                placeholder="Ваше имя (по желанию)"
+                                value={guestName}
+                                onChange={(e) => setGuestName(e.target.value)}
+                                className="w-full rounded border border-[var(--input)] px-3 py-2 text-sm"
+                              />
+                              {item.allow_contributions && rem !== null && rem > 0 && (
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  placeholder={`Сумма (осталось ${rem.toFixed(0)} ₽)`}
+                                  value={contributeAmount}
+                                  onChange={(e) => setContributeAmount(e.target.value)}
+                                  className="w-full rounded border border-[var(--input)] px-3 py-2 text-sm"
+                                />
+                              )}
+                              <div className="flex gap-2">
+                                {item.allow_contributions && rem !== null && rem > 0 && (
+                                  <button
+                                    type="button"
+                                    disabled={submitting}
+                                    onClick={() => contribute(item)}
+                                    className="rounded-lg bg-[var(--primary)] px-3 py-1.5 text-sm text-white disabled:opacity-50"
+                                  >
+                                    Внести вклад
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  disabled={submitting}
+                                  onClick={() => reserveFull(item)}
+                                  className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm disabled:opacity-50"
+                                >
+                                  Резерв на всю сумму
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setReserveItem(null);
+                                    setContributeAmount("");
+                                    setGuestName("");
+                                  }}
+                                  className="text-sm text-[var(--muted)]"
+                                >
+                                  Отмена
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </main>
+    </div>
+  );
+}

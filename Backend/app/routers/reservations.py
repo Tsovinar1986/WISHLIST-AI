@@ -14,9 +14,8 @@ from app.models.wishlist import Wishlist
 from app.models.reservation import Reservation
 from app.schemas.reservation import (
     ReservationCreate,
-    ReservationResponse,
-    ReservationResponseForOwner,
     ReservationResponseForGuest,
+    ItemReservationsSummary,
 )
 from app.services.wishlist_service import get_wishlist_by_id
 from app.services.item_service import get_item_by_id
@@ -24,6 +23,7 @@ from app.services.reservation_service import (
     create_reservation as svc_create_reservation,
     list_reservations_for_item,
     total_reserved_for_item,
+    contributors_count_for_item,
 )
 from app.websocket.manager import manager
 
@@ -40,17 +40,6 @@ async def _get_wishlist_and_item(
     if not item or item.wishlist_id != wishlist_id:
         return w, None
     return w, item
-
-
-def _reservation_for_owner(r: Reservation) -> ReservationResponseForOwner:
-    """Strip user_id and guest_name for owner."""
-    return ReservationResponseForOwner(
-        id=r.id,
-        item_id=r.item_id,
-        amount=float(r.amount),
-        is_full_reservation=r.is_full_reservation,
-        created_at=r.created_at,
-    )
 
 
 def _reservation_for_guest(r: Reservation) -> ReservationResponseForGuest:
@@ -112,14 +101,15 @@ async def create_reservation(
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    # Build payload from current session state (includes new reservation); broadcast after response (after commit)
     total = await total_reserved_for_item(session, item_id)
     reservations = await list_reservations_for_item(session, item_id)
+    count = await contributors_count_for_item(session, item_id)
     event_type = "item_reserved" if data.is_full_reservation else "contribution_added"
     payload = manager.build_item_state_event(
         event_type=event_type,
         item_id=str(item_id),
         reserved_total=float(total),
+        contributors_count=count,
         reservations=_anonymized_reservations_for_broadcast(reservations),
     )
     background_tasks.add_task(
@@ -132,7 +122,7 @@ async def create_reservation(
 
 @router.get(
     "/{wishlist_id}/items/{item_id}/reservations",
-    response_model=list[ReservationResponse],
+    response_model=ItemReservationsSummary,
 )
 async def list_reservations(
     wishlist_id: UUID,
@@ -140,11 +130,12 @@ async def list_reservations(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ):
-    """List reservations. Owner gets anonymized list (no user_id, no guest_name)."""
+    """Owner sees only reserved_total and contributors_count (no identities)."""
     w, item = await _get_wishlist_and_item(session, wishlist_id, item_id)
     if not w or not item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wishlist or item not found")
     if w.owner_id != user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your wishlist")
-    reservations = await list_reservations_for_item(session, item_id)
-    return [_reservation_for_owner(r) for r in reservations]
+    total = await total_reserved_for_item(session, item_id)
+    count = await contributors_count_for_item(session, item_id)
+    return ItemReservationsSummary(reserved_total=float(total), contributors_count=count)

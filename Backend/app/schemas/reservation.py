@@ -46,3 +46,10 @@ class ReservationResponseForGuest(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class ItemReservationsSummary(BaseModel):
+    """For owner: only totals, no identities."""
+
+    reserved_total: float
+    contributors_count: int

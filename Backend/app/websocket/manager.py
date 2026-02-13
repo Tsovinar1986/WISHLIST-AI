@@ -48,11 +48,12 @@ class ConnectionManager:
         event_type: str,
         item_id: str,
         reserved_total: float,
-        reservations: list[dict[str, Any]],
+        contributors_count: int = 0,
+        reservations: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """Build event payload with updated item state. No user_id or guest_name."""
         out = []
-        for r in reservations:
+        for r in reservations or []:
             created_at = r.get("created_at")
             if isinstance(created_at, datetime):
                 created_at = created_at.isoformat()
@@ -66,6 +67,7 @@ class ConnectionManager:
             "type": event_type,
             "item_id": item_id,
             "reserved_total": reserved_total,
+            "contributors_count": contributors_count,
             "reservations": out,
         }
 

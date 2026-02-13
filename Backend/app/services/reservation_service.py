@@ -29,6 +29,13 @@ async def total_reserved_for_item(session: AsyncSession, item_id: UUID) -> Decim
     return result.scalar() or Decimal("0")
 
 
+async def contributors_count_for_item(session: AsyncSession, item_id: UUID) -> int:
+    result = await session.execute(
+        select(func.count(Reservation.id)).where(Reservation.item_id == item_id)
+    )
+    return result.scalar() or 0
+
+
 async def create_reservation(
     session: AsyncSession,
     item_id: UUID,

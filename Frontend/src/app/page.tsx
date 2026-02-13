@@ -1,9 +1,109 @@
-import Chat from "@/components/Chat";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { getStoredToken } from "@/lib/auth-store";
+import { api, type Token, type User } from "@/lib/api";
+import Link from "next/link";
 
 export default function Home() {
+  const router = useRouter();
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (getStoredToken()) router.replace("/dashboard");
+  }, [router]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      if (mode === "register") {
+        await api<User>("/api/auth/register", {
+          method: "POST",
+          body: JSON.stringify({ email, password, name: name || email.split("@")[0] }),
+        });
+        const { access_token, refresh_token } = await api<Token>("/api/auth/login", {
+          method: "POST",
+          body: JSON.stringify({ email, password }),
+        });
+        const { useAuthStore } = await import("@/lib/auth-store");
+        useAuthStore.getState().setTokens(access_token, refresh_token);
+      } else {
+        const { access_token, refresh_token } = await api<Token>("/api/auth/login", {
+          method: "POST",
+          body: JSON.stringify({ email, password }),
+        });
+        const { useAuthStore } = await import("@/lib/auth-store");
+        useAuthStore.getState().setTokens(access_token, refresh_token);
+      }
+      router.replace("/dashboard");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-100">
-      <Chat />
+    <main className="min-h-screen flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--muted-soft)] p-6 shadow-lg">
+        <h1 className="text-2xl font-bold text-center mb-2">Вишлист</h1>
+        <p className="text-sm text-[var(--muted)] text-center mb-6">
+          Создавайте списки желаний и делитесь с друзьями
+        </p>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {mode === "register" && (
+            <input
+              type="text"
+              placeholder="Имя"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full rounded-xl border border-[var(--input)] bg-[var(--background)] px-4 py-2.5 text-[var(--foreground)] placeholder:text-[var(--muted)] focus:ring-2 focus:ring-[var(--ring)]"
+            />
+          )}
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="w-full rounded-xl border border-[var(--input)] bg-[var(--background)] px-4 py-2.5 text-[var(--foreground)] placeholder:text-[var(--muted)] focus:ring-2 focus:ring-[var(--ring)]"
+          />
+          <input
+            type="password"
+            placeholder="Пароль"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="w-full rounded-xl border border-[var(--input)] bg-[var(--background)] px-4 py-2.5 text-[var(--foreground)] placeholder:text-[var(--muted)] focus:ring-2 focus:ring-[var(--ring)]"
+          />
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-xl bg-[var(--primary)] py-2.5 font-medium text-white hover:opacity-90 disabled:opacity-60"
+          >
+            {mode === "login" ? "Войти" : "Регистрация"}
+          </button>
+        </form>
+        <button
+          type="button"
+          onClick={() => setMode(mode === "login" ? "register" : "login")}
+          className="mt-4 w-full text-sm text-[var(--primary)]"
+        >
+          {mode === "login" ? "Нет аккаунта? Зарегистрироваться" : "Уже есть аккаунт? Войти"}
+        </button>
+      </div>
+      <p className="mt-6 text-sm text-[var(--muted)]">
+        Открыть вишлист по ссылке можно без входа — вставьте ссылку в браузер.
+      </p>
     </main>
   );
 }
