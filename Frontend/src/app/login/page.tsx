@@ -45,16 +45,16 @@ function LoginFormInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: trimmedEmail, password }),
       });
-      const data: AuthErrorResponse & { access_token?: string } = await res.json().catch(() => ({}));
+      const json = await res.json().catch(() => ({})) as AuthErrorResponse & { access_token?: string };
       if (!res.ok) {
-        const raw = data.detail;
-        const msg =
+        const raw: string | string[] | undefined = json.detail;
+        const msg: string | undefined =
           typeof raw === "string"
             ? raw
             : Array.isArray(raw)
               ? raw[0]
-              : data.error;
-        toast.error(msg || "Неверный email или пароль");
+              : json.error;
+        toast.error(msg ?? "Неверный email или пароль");
         return;
       }
       toast.success("Добро пожаловать!");
