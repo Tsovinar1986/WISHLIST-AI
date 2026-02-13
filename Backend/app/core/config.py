@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     # Pushover (push notifications to wishlist owner)
     pushover_app_token: str | None = None
 
+    # Pusher Channels (real-time; auth endpoint for private/presence channels)
+    pusher_app_id: str | None = None
+    pusher_key: str | None = None
+    pusher_secret: str | None = None
+    pusher_cluster: str = "ap2"
+
     @property
     def cors_origins_list(self) -> List[str]:
         origins = [o.strip() for o in self.cors_origins.split(",") if o.strip()]

@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
-from app.routers import auth, items, product, public, reservations, users, wishlists, ws
+from app.routers import auth, items, product, public, pusher_auth, reservations, users, wishlists, ws
 
 settings = get_settings()
 
@@ -44,6 +44,7 @@ app.include_router(items.router, prefix="/api")
 app.include_router(reservations.router, prefix="/api")
 app.include_router(public.router, prefix="/api")
 app.include_router(ws.router, prefix="/api")
+app.include_router(pusher_auth.router, prefix="/api")
 
 
 @app.get("/health")
