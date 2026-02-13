@@ -4,6 +4,22 @@ Use these values so the **Vercel** frontend talks to the **Railway** backend.
 
 ---
 
+## Where to get the Railway URL (for Vercel)
+
+Your backend must be **exposed** so Vercel can call it. The deployment panel shows "Unexposed service" until you add a domain.
+
+1. **Railway** → open your project → click the **WISHLIST-AI** (backend) service.
+2. Open the **Settings** tab.
+3. Go to **Networking** → **Public Networking**.
+4. Click **Generate Domain**. Railway will create a URL like `https://wishlist-ai-production-xxxx.up.railway.app`.
+5. **Copy that URL** (no trailing slash). That is your **Railway weblink** for the backend.
+6. **Vercel** → your project → **Settings** → **Environment Variables** → set **`NEXT_PUBLIC_API_URL`** to that URL.
+7. **Redeploy** the Vercel project so it uses the new value.
+
+The backend must be **running** (not crashed) for this URL to work. If the service is crashed, fix the deployment first, then use the URL from step 5 in Vercel.
+
+---
+
 ## 1. Vercel (Frontend) — Environment Variables
 
 **Where:** Vercel → your project → **Settings** → **Environment Variables**
@@ -12,7 +28,7 @@ Add these (Production + Preview if you want):
 
 | Key | Value |
 |-----|--------|
-| `NEXT_PUBLIC_API_URL` | `https://wishlist-backend.up.railway.app` |
+| `NEXT_PUBLIC_API_URL` | *Your Railway public URL from **Generate Domain** (e.g. `https://wishlist-ai-production-xxxx.up.railway.app`)* |
 | `NEXT_PUBLIC_SITE_URL` | `https://YOUR_VERCEL_APP.vercel.app` *(replace with your real Vercel app URL)* |
 
 Then **Redeploy** (Deployments → ⋯ → Redeploy).
