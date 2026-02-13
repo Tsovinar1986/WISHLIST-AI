@@ -1,5 +1,6 @@
 """FastAPI application: CORS, routers, WebSocket."""
 
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -11,14 +12,19 @@ from app.db.session import engine
 from app.models import Item, Reservation, User, Wishlist  # noqa: F401 - register with Base.metadata
 from app.routers import auth, items, product, public, pusher_auth, reservations, users, wishlists, ws
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Create tables if missing (e.g. first deploy on Railway; idempotent)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # Create tables if missing (e.g. first deploy on Railway; idempotent).
+    # If DB is unreachable, log and continue so the app stays up and /health works.
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    except Exception as e:
+        logger.warning("Could not create DB tables (check DATABASE_URL and that DB is reachable): %s", e)
     yield
 
 

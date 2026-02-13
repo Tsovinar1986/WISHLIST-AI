@@ -71,10 +71,25 @@ If you add or change variables, Railway will redeploy.
 
 ---
 
+## If the deployment crashes after a few seconds
+
+Common causes:
+
+1. **DATABASE_URL missing or wrong**
+   - In Railway → WISHLIST-AI → **Variables**, add **`DATABASE_URL`**.
+   - Add a **PostgreSQL** service in the same project (Railway → Add Service → Database → PostgreSQL), then in your backend service Variables use **Reference** to use the Postgres `DATABASE_URL` (or copy the URL; it’s usually `postgresql://...` — the app converts it to `postgresql+asyncpg://`).
+   - If the URL is wrong or the DB is not reachable, the app may crash at startup. The app now logs a warning and keeps running so you can see logs; fix `DATABASE_URL` and redeploy.
+
+2. **Port**
+   - The app must listen on the port Railway provides (`PORT`). The Dockerfile and Procfile are set up to use `$PORT`. If you override the start command in Railway, use `$PORT` (e.g. `uvicorn app.main:app --host 0.0.0.0 --port $PORT`).
+
+3. **View logs**
+   - Railway → WISHLIST-AI → **Deployments** → click the latest deployment → **View logs**. The traceback or “Could not create DB tables” message will point to the cause.
+
 ## If you still see "Server error" or "Server problem"
 
-- The backend is reachable but **returning 500** (crashed or DB error). In **Railway** → WISHLIST-AI → **Deployments** → **View logs** for the latest deployment. Check for:
-  - Missing or wrong **DATABASE_URL** (add a PostgreSQL service and copy its URL into Variables).
+- The backend is reachable but **returning 500** (DB error or unhandled exception). In **Railway** → WISHLIST-AI → **Deployments** → **View logs** for the latest deployment. Check for:
+  - Missing or wrong **DATABASE_URL** (add a PostgreSQL service and copy/reference its URL in Variables).
   - Python/import errors — fix Root Directory = `Backend` or Dockerfile path = `Dockerfile.backend`.
 
 ## Done
