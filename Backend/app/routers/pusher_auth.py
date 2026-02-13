@@ -17,15 +17,10 @@ router = APIRouter(prefix="/pusher", tags=["pusher"])
 
 
 class PusherAuthResponse(BaseModel):
-    """Response for POST /api/pusher/auth — auth string for Pusher JS."""
+    """Response for POST /api/pusher/auth — auth string for Pusher JS; channel_data only for presence."""
 
     auth: str
-
-
-class PusherPresenceAuthResponse(PusherAuthResponse):
-    """Response for presence channel — includes channel_data."""
-
-    channel_data: str
+    channel_data: str | None = None
 
 
 def _sign_pusher(string_to_sign: str, secret: str) -> str:
@@ -53,7 +48,7 @@ async def pusher_auth(
     channel_name: str = Form(..., min_length=1, description="Channel name (e.g. private-wishlist-123)"),
     channel_data: str | None = Form(None, description="JSON string for presence channel_data"),
     user: User | None = Depends(get_current_user_optional),
-) -> PusherAuthResponse | PusherPresenceAuthResponse:
+) -> PusherAuthResponse:
     settings = get_settings()
     if not settings.pusher_key or not settings.pusher_secret:
         raise HTTPException(
@@ -84,7 +79,7 @@ async def pusher_auth(
             # Presence: sign socket_id:channel_name:channel_data (channel_data is JSON string as sent by client)
             string_to_sign = f"{socket_id}:{channel_name}:{channel_data}"
             signature = _sign_pusher(string_to_sign, settings.pusher_secret)
-            return PusherPresenceAuthResponse(
+            return PusherAuthResponse(
                 auth=f"{settings.pusher_key}:{signature}",
                 channel_data=channel_data,
             )
@@ -92,7 +87,7 @@ async def pusher_auth(
             # Private channel (or presence without channel_data - client should send it)
             string_to_sign = f"{socket_id}:{channel_name}"
             signature = _sign_pusher(string_to_sign, settings.pusher_secret)
-            return PusherAuthResponse(auth=f"{settings.pusher_key}:{signature}")
+            return PusherAuthResponse(auth=f"{settings.pusher_key}:{signature}", channel_data=None)
     except Exception as e:
         logger.warning("Pusher auth failed: %s", e)
         raise HTTPException(
