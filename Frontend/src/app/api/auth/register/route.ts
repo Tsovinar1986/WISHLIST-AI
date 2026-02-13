@@ -28,14 +28,25 @@ export async function POST(request: NextRequest) {
       }),
     });
     const registerData = (await registerRes.json().catch(() => ({}))) as {
-      detail?: string | string[];
+      detail?: string | string[] | { msg?: string }[];
     };
     if (!registerRes.ok) {
       const raw = registerData.detail;
-      const errorMsg =
-        typeof raw === "string" ? raw : Array.isArray(raw) ? raw[0] : undefined;
+      let errorMsg: string | undefined;
+      if (typeof raw === "string") {
+        errorMsg = raw;
+      } else if (Array.isArray(raw) && raw.length > 0) {
+        const first = raw[0];
+        errorMsg = typeof first === "object" && first && "msg" in first ? first.msg : String(first);
+      }
+      if (!errorMsg && registerRes.status >= 500) {
+        errorMsg = "Server problem. Try again later.";
+      }
+      if (!errorMsg) {
+        errorMsg = "Registration failed.";
+      }
       return NextResponse.json(
-        { error: errorMsg || "Registration failed" },
+        { error: errorMsg },
         { status: registerRes.status }
       );
     }
@@ -65,6 +76,9 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (e) {
     console.error("Register API error:", e);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Backend unavailable. Try again later." },
+      { status: 503 }
+    );
   }
 }

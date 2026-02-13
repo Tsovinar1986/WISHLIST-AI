@@ -46,17 +46,20 @@ export default function RegisterPage() {
         }),
       });
       const data = (await res.json().catch(() => ({}))) as {
-        detail?: string | string[];
+        detail?: string | string[] | { msg?: string }[];
         error?: string;
       };
       if (!res.ok) {
         const raw = data.detail;
-        const msg =
-          typeof raw === "string"
-            ? raw
-            : Array.isArray(raw)
-              ? raw[0]
-              : data.error;
+        let msg: string | undefined;
+        if (data.error) {
+          msg = data.error;
+        } else if (typeof raw === "string") {
+          msg = raw;
+        } else if (Array.isArray(raw) && raw.length > 0) {
+          const first = raw[0];
+          msg = typeof first === "object" && first && "msg" in first ? first.msg : String(first);
+        }
         toast.error(msg || "Ошибка регистрации");
         return;
       }
